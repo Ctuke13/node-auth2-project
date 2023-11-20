@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../secrets"); // use this secret!
-const db = require("../../data/db-config.js");
+const { findBy } = require("../users/users-model.js");
 
 const restricted = (req, res, next) => {
   /*
@@ -18,23 +18,19 @@ const restricted = (req, res, next) => {
 
     Put the decoded token in the req object, to make life easier for middlewares downstream!
   */
-
   const token = req.headers.authorization;
-
-  if (token) {
+  if (!token) {
+    next({ status: 401, message: "Token required" });
+  } else {
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
       if (err) {
         next({ status: 401, message: `Token invalid` });
       } else {
         req.decodedJwt = decoded;
-        console.log(req.decodedJwt);
         next();
       }
     });
-  } else {
-    next({ status: 401, message: "Token required" });
   }
-  // next();
 };
 
 const only = (role_name) => (req, res, next) => {
@@ -48,7 +44,7 @@ const only = (role_name) => (req, res, next) => {
 
     Pull the decoded token from the req object, to avoid verifying it again!
   */
-  if (req.decodedJwt && req.decodedJwt.role === role_name) {
+  if (req.decodedJwt && req.decodedJwt.role_name === role_name) {
     next();
   } else {
     next({ status: 403, message: "This is not for you" });
@@ -64,14 +60,12 @@ const checkUsernameExists = async (req, res, next) => {
       "message": "Invalid credentials"
     }
   */
-  const { username } = req.body;
+
   try {
-    const existingUser = await db("users")
-      .select("username")
-      .where("username", "=", username)
-      .first();
+    const [existingUser] = await findBy({ username: req.body.username });
 
     if (existingUser) {
+      req.user = existingUser;
       next();
     } else {
       next({
@@ -116,6 +110,7 @@ const validateRoleName = (req, res, next) => {
     });
   } else if (role_name.trim().length > 32) {
     next({
+      status: 422,
       message: "Role name can not be longer than 32 chars",
     });
   } else {
