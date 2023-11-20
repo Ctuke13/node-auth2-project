@@ -17,21 +17,15 @@ router.post("/register", validateRoleName, (req, res, next) => {
       "role_name": "angel"
     }
    */
-
   const { username, password } = req.body;
   const { role_name } = req;
-
   const hash = bcrypt.hashSync(password, 8);
 
-  // user.password = hash;
-
-  Users.add({ username, password: hash, role_name }).then((saved) => {
-    res.status(201).json({
-      user_id: saved.user_id,
-      username: saved.username,
-      role_name: saved.role_id,
-    });
-  });
+  Users.add({ username, password: hash, role_name })
+    .then((newUser) => {
+      res.status(201).json(newUser);
+    })
+    .catch(next);
 });
 
 router.post("/login", checkUsernameExists, (req, res, next) => {
